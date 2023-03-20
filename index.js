@@ -9,13 +9,12 @@ const port = process.env.PORT || 3000;
 const dns = require('node:dns');
 const mySecret = process.env['db'];
 mongoose.connect(mySecret, { useNewUrlParser: true, useUnifiedTopology: true });
-
+// https://expressjs.com/en/resources/middleware/cors.html
 app.use(cors());
 
 const urlSchema = new mongoose.Schema({
   original_url: { type: String, required: true, unique: true },
   short_url: { type: Number, required: true, unique: true },
-  ip: { type: String },
 });
 const url = mongoose.model('url', urlSchema);
 
@@ -26,16 +25,12 @@ app.get('/', function (req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-let num = 0;
-
 app.post('/api/shorturl', (req, res) => {
   const usersUrl = req.body.url;
   // validate url
   urlObj = new URL(usersUrl);
-  // console.log(urlObj)
   // if domain exists, returns the address
   dns.lookup(urlObj.host, (err, address, family) => {
-    // console.log(address)
     if (!address) {
       console.log(address);
       res.json({ error: 'invalid url' });
@@ -45,20 +40,16 @@ app.post('/api/shorturl', (req, res) => {
       // get latest shorturl
       url
         .find({})
+        // https://www.w3schools.com/nodejs/nodejs_mongodb_sort.asp
         .sort({ short_url: 'desc' })
         .limit(1)
         .then((latestUrl) => {
-          console.log(latestUrl);
           if (latestUrl.length > 0) {
             short_url = latestUrl[0].short_url + 1;
           }
           // place in here
           const responseObj = { original_url, short_url };
-          const newUrl = new url({
-            original_url,
-            short_url,
-            ip: address,
-          });
+          const newUrl = new url(responseObj);
           newUrl.save();
           res.json(responseObj);
         });
@@ -66,10 +57,7 @@ app.post('/api/shorturl', (req, res) => {
   });
 });
 
-// if error
-
-// Your first API endpoint
-app.get('/api/shorturl/:number', function (req, res) {
+app.get('/api/shorturl/:number', (req, res) => {
   const param = req.params.number;
   url.findOne({ short_url: param }).then((url) => {
     if (url) {
@@ -81,6 +69,6 @@ app.get('/api/shorturl/:number', function (req, res) {
   });
 });
 
-app.listen(port, function () {
+app.listen(port, () => {
   console.log(`Listening on port ${port}`);
 });
